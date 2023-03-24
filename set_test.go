@@ -1176,7 +1176,7 @@ func Test_EmptySetProperties(t *testing.T) {
 	}
 }
 
-func Test_ToSliceUnthreadsafe(t *testing.T) {
+func Test_ToSliceThreadUnsafe(t *testing.T) {
 	s := makeUnsafeSetInt([]int{1, 2, 3})
 	setAsSlice := s.ToSlice()
 	if len(setAsSlice) != s.Cardinality() {
@@ -1305,4 +1305,72 @@ func Test_Example(t *testing.T) {
 	   //Do you have the following classes? Welding, Automotive and English?
 	   fmt.Println(allClasses.ContainsAll("Welding", "Automotive", "English"))
 	*/
+}
+
+func Test_NewSetWithFilter(t *testing.T) {
+	type a struct {
+		id int
+	}
+	vals := []a{
+		{id: 1},
+		{id: 2},
+		{id: 3},
+	}
+	s := NewSetWithFilter[int, a](vals, func(item a) int {
+		return item.id
+	})
+	for _, v := range vals {
+		if !s.Contains(v.id) {
+			t.Errorf("Set is missing element: %v", v.id)
+		}
+	}
+}
+func Test_NewSetWithFilter_option(t *testing.T) {
+	type a struct {
+		id int
+	}
+	vals := []a{
+		{id: 1},
+		{id: 2},
+		{id: 3},
+	}
+	s := NewSetWithFilter[int, a](vals, func(item a) int {
+		return item.id
+	}, WithNewSet[int](func() Set[int] {
+		return NewThreadUnsafeSet[int]()
+	}))
+	for _, v := range vals {
+		if !s.Contains(v.id) {
+			t.Errorf("Set is missing element: %v", v.id)
+		}
+	}
+}
+
+func Test_NewSetWithComplexFilter(t *testing.T) {
+	type a struct {
+		id int
+	}
+	vals := []a{
+		{id: 1},
+		{id: 2},
+		{id: 3},
+	}
+	s := NewSetWithComplexFilter[int, a](vals, func(item a) (int, bool) {
+		if item.id == 1 {
+			return 0, false
+		}
+		return item.id, true
+	})
+	for _, v := range vals {
+		if v.id == 1 {
+			if s.Contains(v.id) {
+				t.Errorf("Set should not contains element: %v", v.id)
+			}
+			continue
+		}
+
+		if !s.Contains(v.id) {
+			t.Errorf("Set is missing element: %v", v.id)
+		}
+	}
 }

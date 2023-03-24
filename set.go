@@ -239,3 +239,45 @@ func NewThreadUnsafeSetFromMapKeys[T comparable, V any](val map[T]V) Set[T] {
 
 	return s
 }
+
+type option[T comparable] struct {
+	setFunc func() Set[T]
+}
+
+func WithNewSet[T comparable](f func() Set[T]) func(opt option[T]) {
+	return func(opt option[T]) {
+		opt.setFunc = f
+	}
+}
+
+// NewSetWithFilter creates and returns a new set with the given keys of the map.
+// Replace default create func with option func.
+// Operations on the resulting set are thread-safe.
+func NewSetWithFilter[T comparable, V any](vals []V, filter func(item V) T, opts ...func(opt option[T])) Set[T] {
+	return NewSetWithComplexFilter[T, V](vals, func(item V) (T, bool) {
+		return filter(item), true
+	}, opts...)
+}
+
+// NewSetWithComplexFilter creates and returns a new set with the given keys of the map.
+// Replace default create func with option func.
+// Operations on the resulting set are thread-safe.
+func NewSetWithComplexFilter[T comparable, V any](vals []V, filter func(item V) (T, bool), opts ...func(opt option[T])) Set[T] {
+	opt := option[T]{
+		setFunc: func() Set[T] {
+			return NewSet[T]()
+		},
+	}
+	for _, f := range opts {
+		f(opt)
+	}
+
+	s := opt.setFunc()
+	for _, item := range vals {
+		if v, ok := filter(item); ok {
+			s.Add(v)
+		}
+	}
+
+	return s
+}
